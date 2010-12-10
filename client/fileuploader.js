@@ -335,7 +335,7 @@ qq.FileUploaderBasic.prototype = {
             maxConnections: this._options.maxConnections,
             uniqueId: this._getUniqueID(),
             serverProgressUrl: this._options.serverProgressUrl,
-            serverProgressHeader: this._options.serverProgressUrl,
+            serverProgressHeader: this._options.serverProgressHeader,
             serverProgressParam: this._options.serverProgressParam,
             serverProgressInterval: this._options.serverProgressInterval,
             onProgress: function(id, fileName, loaded, total){
@@ -1242,9 +1242,9 @@ qq.extend(qq.UploadHandlerXhr.prototype, {
         xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
         xhr.setRequestHeader("X-File-Name", encodeURIComponent(name));
         xhr.setRequestHeader("Content-Type", "application/octet-stream");
-        if (this._options.serverProgressHeader) {
-            xhr.setRequestHeader(this._options.serverProgressHeader,
-                    this.options.unique_id);
+        if (self._options.serverProgressHeader) {
+            xhr.setRequestHeader(self._options.serverProgressHeader,
+                    self._options.uniqueId);
         }
         xhr.send(file);
     },
