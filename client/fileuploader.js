@@ -260,7 +260,11 @@ qq.FileUploaderBasic = function(o){
         // validation        
         allowedExtensions: [],               
         sizeLimit: 0,   
-        minSizeLimit: 0,                             
+        minSizeLimit: 0,
+        serverProgressHeader: null,
+        serverProgressParam: null,
+        serverProgressUrl: null,
+        serverProgressInterval: 500,
         // events
         // return false to cancel submit
         onSubmit: function(id, fileName){},
@@ -276,8 +280,7 @@ qq.FileUploaderBasic = function(o){
             onLeave: "The files are being uploaded, if you leave now the upload will be cancelled."            
         },
         showMessage: function(message){
-            alert(message);
-        }               
+        }
     };
     qq.extend(this._options, o);
         
@@ -299,6 +302,11 @@ qq.FileUploaderBasic.prototype = {
     getInProgress: function(){
         return this._filesInProgress;         
     },
+    _getUniqueID: function() {
+        var newDate = new Date,
+            id = newDate.getTime() + (((1+Math.random())*0x10000)|0).toString(16).substring(1);
+        return id;
+    },
     _createUploadButton: function(element){
         var self = this;
         
@@ -312,8 +320,9 @@ qq.FileUploaderBasic.prototype = {
     },    
     _createUploadHandler: function(){
         var self = this,
-            handlerClass;        
-        
+            handlerClass;
+
+
         if(qq.UploadHandlerXhr.isSupported()){           
             handlerClass = 'UploadHandlerXhr';                        
         } else {
@@ -323,10 +332,15 @@ qq.FileUploaderBasic.prototype = {
         var handler = new qq[handlerClass]({
             debug: this._options.debug,
             action: this._options.action,         
-            maxConnections: this._options.maxConnections,   
-            onProgress: function(id, fileName, loaded, total){                
+            maxConnections: this._options.maxConnections,
+            uniqueId: this._getUniqueID(),
+            serverProgressUrl: this._options.serverProgressUrl,
+            serverProgressHeader: this._options.serverProgressUrl,
+            serverProgressParam: this._options.serverProgressParam,
+            serverProgressInterval: this._options.serverProgressInterval,
+            onProgress: function(id, fileName, loaded, total){
                 self._onProgress(id, fileName, loaded, total);
-                self._options.onProgress(id, fileName, loaded, total);                    
+                self._options.onProgress(id, fileName, loaded, total);
             },            
             onComplete: function(id, fileName, result){
                 self._onComplete(id, fileName, result);
@@ -953,7 +967,7 @@ qq.UploadHandlerAbstract.prototype = {
  */
 qq.UploadHandlerForm = function(o){
     qq.UploadHandlerAbstract.apply(this, arguments);
-       
+
     this._inputs = {};
 };
 // @inherits qq.UploadHandlerAbstract
@@ -991,25 +1005,53 @@ qq.extend(qq.UploadHandlerForm.prototype, {
 
             qq.remove(iframe);
         }
-    },     
-    _upload: function(id, params){                        
-        var input = this._inputs[id];
-        
+    },
+    _startProgress: function(id) {
+        var self = this;
+        setTimeout(function(id) { self._progress(id); }, self._options.serverProgressInterval, id);
+    },
+    _progress: function (id) {
+        var self = this;
+
+        if (self._options.serverProgressUrl) {
+            $.ajax({
+                'url':  self._options.serverProgressUrl + self._options.uniqueId,
+                'dataType':  'json',
+                'success': function(data) {
+                    if (self._options.onProgress && data && data.received && data.size) {
+                        self._options.onProgress(id, self.fileName, data.received, data.size);
+                    }
+                    if (data && data.received < data.size){
+                        setTimeout(function(id) { self._progress(id); }, self._options.serverProgressInterval, id);
+                    }
+                }
+            });
+        }
+    },
+    _upload: function(id, params){
+        var self = this,
+            input = this._inputs[id],
+            fileName = this.getName(id),
+            iframe, form, response;
+
         if (!input){
             throw new Error('file with passed id was not added, or already uploaded or cancelled');
         }                
 
-        var fileName = this.getName(id);
-                
-        var iframe = this._createIframe(id);
-        var form = this._createForm(iframe, params);
+        this.fileName = fileName;
+
+        iframe = this._createIframe(id);
+
+        if ( this._options.serverProgressParam ) {
+            params[this._options.serverProgressParam] = this._options.uniqueId;
+        }
+        form = this._createForm(iframe, params);
         form.appendChild(input);
 
-        var self = this;
         this._attachLoadEvent(iframe, function(){                                 
             self.log('iframe loaded');
             
-            var response = self._getIframeContentJSON(iframe);
+            response = self._getIframeContentJSON(iframe);
 
             self._options.onComplete(id, fileName, response);
             self._dequeue(id);
@@ -1020,10 +1062,9 @@ qq.extend(qq.UploadHandlerForm.prototype, {
                 qq.remove(iframe);
             }, 1);
         });
-
-        form.submit();        
-        qq.remove(form);        
-        
+        this._startProgress(id);
+        form.submit();
+        qq.remove(form);
         return id;
     }, 
     _attachLoadEvent: function(iframe, callback){
@@ -1201,6 +1242,10 @@ qq.extend(qq.UploadHandlerXhr.prototype, {
         xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
         xhr.setRequestHeader("X-File-Name", encodeURIComponent(name));
         xhr.setRequestHeader("Content-Type", "application/octet-stream");
+        if (this._options.serverProgressHeader) {
+            xhr.setRequestHeader(this._options.serverProgressHeader,
+                    this.options.unique_id);
+        }
         xhr.send(file);
     },
     _onComplete: function(id, xhr){

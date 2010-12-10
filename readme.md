@@ -7,14 +7,16 @@ providing good user experience everywhere.
 ### <a href="http://valums.com/files/2010/file-uploader/demo.htm">Demo</a> [Donate][donation_link] ###
 
 ### Features ###
-* multiple file select, progress-bar in FF, Chrome, Safari
+* multiple file select
+* progress-bar in FF, Chrome, Safari
+* progress-bar in all browsers using server-side progress monitoring
 * drag-and-drop file select in FF, Chrome 
 * uploads are cancellable
 * no external dependencies
 * doesn't use Flash
 * fully working with https
 * keyboard support in FF, Chrome, Safari
-* tested in IE7,8; Firefox 3,3.6,4; Safari4,5; Chrome; Opera10.60;
+* tested in IE6,7,8; Firefox 3,3.6,4; Safari4,5; Chrome; Opera10.60;
 
 ### License ###
 This plugin is open sourced under <a href="http://www.gnu.org/licenses/gpl-2.0.html">GNU GPL 2</a> or later.
@@ -78,6 +80,17 @@ If you can't find the one you need, check the readme.txt in the same folder.
     // this option isn't supported in all browsers
     sizeLimit: 0, // max size   
     minSizeLimit: 0, // min size
+
+    // server progress support. these settings should work out of the 
+    // box with https://github.com/masterzen/nginx-upload-progress-module
+    // with the upload_progress_json_output option set.
+    serverProgressUrl: '/progress?X-Progress-ID=',  // server progress url
+    serverProgressParam: 'X-Progress-ID',           // parameter for form post
+    
+    // optional
+    serverProgressHeader: 'X-Progress-ID',          // header for xhr post (unneeded)
+    serverProgressInterval: 500,                    // millis between updates
+    
     
     // set to true to output server response to console
     debug: false,
